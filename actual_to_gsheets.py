@@ -98,7 +98,7 @@ def get_budget_data(
         for category in categories:
             # Get budget for this category
             budget = budget_map.get(category.id)
-            budgeted = cents_to_decimal(budget.amount if budget and budget.amount else 0)
+            budgeted = cents_to_decimal(budget.amount if budget and budget.amount is not None else 0)
             
             # Calculate actual spend from transactions
             transactions = get_transactions(
@@ -149,6 +149,25 @@ def get_budget_data(
 def format_currency(value: float) -> str:
     """Format a number as currency."""
     return f"${value:,.2f}"
+
+
+def get_or_create_worksheet(spreadsheet, title: str, rows: int = 100, cols: int = 5):
+    """
+    Get an existing worksheet or create it if it doesn't exist.
+    
+    Args:
+        spreadsheet: gspread spreadsheet object
+        title: Title of the worksheet
+        rows: Number of rows for new worksheet
+        cols: Number of columns for new worksheet
+        
+    Returns:
+        gspread worksheet object
+    """
+    try:
+        return spreadsheet.worksheet(title)
+    except gspread.exceptions.WorksheetNotFound:
+        return spreadsheet.add_worksheet(title=title, rows=rows, cols=cols)
 
 
 def update_sheet_tab(
@@ -307,26 +326,12 @@ def main():
         
         # Update Previous Month Budget tab
         print(f"Updating 'Previous Month Budget' tab with {previous_label} data...")
-        try:
-            previous_worksheet = spreadsheet.worksheet("Previous Month Budget")
-        except gspread.exceptions.WorksheetNotFound:
-            previous_worksheet = spreadsheet.add_worksheet(
-                title="Previous Month Budget",
-                rows=100,
-                cols=5
-            )
+        previous_worksheet = get_or_create_worksheet(spreadsheet, "Previous Month Budget")
         update_sheet_tab(previous_worksheet, previous_label, previous_month_data)
         
         # Update Current Month Budget tab
         print(f"Updating 'Current Month Budget' tab with {current_label} data...")
-        try:
-            current_worksheet = spreadsheet.worksheet("Current Month Budget")
-        except gspread.exceptions.WorksheetNotFound:
-            current_worksheet = spreadsheet.add_worksheet(
-                title="Current Month Budget",
-                rows=100,
-                cols=5
-            )
+        current_worksheet = get_or_create_worksheet(spreadsheet, "Current Month Budget")
         update_sheet_tab(current_worksheet, current_label, current_month_data)
         
         print("✓ Successfully synced budget data to Google Sheets!")
