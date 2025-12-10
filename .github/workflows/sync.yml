@@ -28,10 +28,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       
-      - name: Create credentials file
-        run: |
-          echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > service-account-credentials.json
-      
       - name: Run sync script
         env:
           ACTUAL_SERVER_URL: ${{ secrets.ACTUAL_SERVER_URL }}
@@ -39,11 +35,6 @@ jobs:
           ACTUAL_FILE: ${{ secrets.ACTUAL_FILE }}
           ACTUAL_ENCRYPTION_PASSWORD: ${{ secrets.ACTUAL_ENCRYPTION_PASSWORD }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
-          GOOGLE_CREDENTIALS_FILE: service-account-credentials.json
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
         run: |
           python actual_to_gsheets.py
-      
-      - name: Clean up credentials
-        if: always()
-        run: |
-          rm -f service-account-credentials.json

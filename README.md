@@ -160,7 +160,10 @@ Same format as above, but with current month's data.
 | `ACTUAL_FILE` | Yes | Name of your budget file |
 | `ACTUAL_ENCRYPTION_PASSWORD` | No | Encryption password if budget is encrypted |
 | `GOOGLE_SHEET_ID` | Yes | ID of your Google Sheet |
-| `GOOGLE_CREDENTIALS_FILE` | Yes | Path to service account JSON credentials |
+| `GOOGLE_CREDENTIALS_FILE` | Conditional* | Path to service account JSON credentials file |
+| `GOOGLE_CREDENTIALS_JSON` | Conditional* | Service account JSON credentials as a string |
+
+\* Either `GOOGLE_CREDENTIALS_FILE` or `GOOGLE_CREDENTIALS_JSON` must be provided. Use `GOOGLE_CREDENTIALS_FILE` for local execution and `GOOGLE_CREDENTIALS_JSON` for CI/CD environments like GitHub Actions.
 
 ### Schedule Configuration
 

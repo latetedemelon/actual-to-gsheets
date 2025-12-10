@@ -106,17 +106,22 @@ def get_budget_data(
             
             # Sum up transactions (negative for expenses, positive for income)
             # Exclude parent split transactions to avoid double-counting
+            # Note: is_parent may not be set on older transaction records, 
+            # so we use getattr with False as default
             actual_spend = sum(
                 cents_to_decimal(t.amount) for t in transactions
-                if not getattr(t, 'is_parent', False)  # Defensive check for is_parent
+                if not getattr(t, 'is_parent', False)
             )
             
-            # For expense categories (not income), invert the sign
-            # In Actual, expenses are negative, but we want to show them as positive in the sheet
+            # For expense categories (not income), invert the sign for display
+            # Actual Budget stores expenses as negative numbers (e.g., -$50 for grocery spend)
+            # but we want to show them as positive in the sheet for better readability
             if not group.is_income:
                 actual_spend = -actual_spend
             
             # Calculate running balance (budgeted - actual_spend for expenses)
+            # For income categories: actual - budgeted (we want to see if we earned more than expected)
+            # For expense categories: budgeted - actual (we want to see if we have budget left)
             if group.is_income:
                 running_balance = actual_spend - budgeted
             else:
@@ -218,6 +223,7 @@ def main():
     actual_encryption_password = os.getenv("ACTUAL_ENCRYPTION_PASSWORD")
     google_sheet_id = os.getenv("GOOGLE_SHEET_ID")
     google_credentials_file = os.getenv("GOOGLE_CREDENTIALS_FILE")
+    google_credentials_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
     
     # Validate required environment variables
     required_vars = [
@@ -225,8 +231,12 @@ def main():
         ("ACTUAL_PASSWORD", actual_password),
         ("ACTUAL_FILE", actual_file),
         ("GOOGLE_SHEET_ID", google_sheet_id),
-        ("GOOGLE_CREDENTIALS_FILE", google_credentials_file),
     ]
+    
+    # Either credentials file or credentials JSON must be provided
+    if not google_credentials_file and not google_credentials_json:
+        print("Error: Either GOOGLE_CREDENTIALS_FILE or GOOGLE_CREDENTIALS_JSON must be set")
+        sys.exit(1)
     
     missing_vars = [var_name for var_name, var_value in required_vars if not var_value]
     if missing_vars:
@@ -272,10 +282,21 @@ def main():
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive",
         ]
-        credentials = Credentials.from_service_account_file(
-            google_credentials_file,
-            scopes=scopes
-        )
+        
+        # Load credentials from file or JSON string
+        if google_credentials_json:
+            import json
+            credentials_info = json.loads(google_credentials_json)
+            credentials = Credentials.from_service_account_info(
+                credentials_info,
+                scopes=scopes
+            )
+        else:
+            credentials = Credentials.from_service_account_file(
+                google_credentials_file,
+                scopes=scopes
+            )
+        
         client = gspread.authorize(credentials)
         
         # Open the spreadsheet
