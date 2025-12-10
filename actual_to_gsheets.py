@@ -19,6 +19,7 @@ from dateutil.relativedelta import relativedelta
 from actual import Actual
 from actual.queries import (
     get_budgets,
+    get_categories,
     get_category_groups,
     get_transactions,
 )
@@ -82,8 +83,9 @@ def get_budget_data(
         if group.hidden or group.tombstone:
             continue
             
-        # Get categories in this group
-        categories = [cat for cat in session.query(session.model.Categories).all()
+        # Get categories in this group using the proper API
+        all_categories = get_categories(session, include_deleted=False)
+        categories = [cat for cat in all_categories
                      if cat.group == group.id and not cat.hidden and not cat.tombstone]
         
         # Sort categories alphabetically
@@ -103,9 +105,10 @@ def get_budget_data(
             )
             
             # Sum up transactions (negative for expenses, positive for income)
+            # Exclude parent split transactions to avoid double-counting
             actual_spend = sum(
                 cents_to_decimal(t.amount) for t in transactions
-                if not t.is_parent  # Exclude parent split transactions
+                if not getattr(t, 'is_parent', False)  # Defensive check for is_parent
             )
             
             # For expense categories (not income), invert the sign
