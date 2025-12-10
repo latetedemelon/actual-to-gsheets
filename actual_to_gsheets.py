@@ -77,6 +77,9 @@ def get_budget_data(
     # Create a mapping of category_id to budget data
     budget_map = {b.category_id: b for b in budgets}
     
+    # Get all categories once (not in the loop)
+    all_categories = get_categories(session, include_deleted=False)
+    
     # Prepare data list
     data = []
     
@@ -85,8 +88,7 @@ def get_budget_data(
         if group.hidden or group.tombstone:
             continue
             
-        # Get categories in this group using the proper API
-        all_categories = get_categories(session, include_deleted=False)
+        # Filter categories for this group
         categories = [cat for cat in all_categories
                      if cat.group == group.id and not cat.hidden and not cat.tombstone]
         
