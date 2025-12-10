@@ -6,8 +6,10 @@ This script connects to an Actual Budget server, extracts budget data for the cu
 and previous month, and updates two tabs in a Google Sheet with the budget information.
 """
 
+import json
 import os
 import sys
+import traceback
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Tuple
@@ -285,7 +287,6 @@ def main():
         
         # Load credentials from file or JSON string
         if google_credentials_json:
-            import json
             credentials_info = json.loads(google_credentials_json)
             credentials = Credentials.from_service_account_info(
                 credentials_info,
@@ -330,7 +331,6 @@ def main():
         
     except Exception as e:
         print(f"Error: {e}")
-        import traceback
         traceback.print_exc()
         sys.exit(1)
 
