@@ -17,6 +17,7 @@ from typing import Dict, List, Tuple
 import gspread
 from google.oauth2.service_account import Credentials
 from dateutil.relativedelta import relativedelta
+from dotenv import load_dotenv
 
 from actual import Actual
 from actual.queries import (
@@ -239,6 +240,9 @@ def update_sheet_tab(
 
 def main():
     """Main function to sync budget data from Actual to Google Sheets."""
+    # Load environment variables from .env file
+    load_dotenv()
+    
     # Load environment variables
     actual_server_url = os.getenv("ACTUAL_SERVER_URL")
     actual_password = os.getenv("ACTUAL_PASSWORD")
