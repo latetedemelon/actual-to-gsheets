@@ -15,6 +15,7 @@ from decimal import Decimal
 from typing import Dict, List, Tuple
 
 import gspread
+from dotenv import load_dotenv
 from google.oauth2.service_account import Credentials
 from dateutil.relativedelta import relativedelta
 
@@ -70,6 +71,7 @@ def get_budget_data(
     """
     # Get all category groups
     category_groups = get_category_groups(session)
+    print(f"Found {len(category_groups)} category groups")
     
     # Get all budgets for the month
     budgets = get_budgets(session, month_start.date())
@@ -79,6 +81,7 @@ def get_budget_data(
     
     # Get all categories once (not in the loop)
     all_categories = get_categories(session, include_deleted=False)
+    print(f"Found {len(all_categories)} total categories")
     
     # Prepare data list
     data = []
@@ -89,8 +92,12 @@ def get_budget_data(
             continue
             
         # Filter categories for this group
+        # Note: cat.cat_group is the foreign key field containing the group ID
         categories = [cat for cat in all_categories
-                     if cat.group == group.id and not cat.hidden and not cat.tombstone]
+                     if cat.cat_group == group.id and not cat.hidden and not cat.tombstone]
+        
+        if categories:
+            print(f"Group '{group.name}': {len(categories)} categories")
         
         # Sort categories alphabetically
         categories.sort(key=lambda x: x.name or "")
@@ -142,6 +149,8 @@ def get_budget_data(
     
     # Sort by group name, then by category name
     data.sort(key=lambda x: (x["group"], x["category"]))
+    
+    print(f"Returning {len(data)} budget entries")
     
     return data
 
@@ -239,6 +248,9 @@ def update_sheet_tab(
 
 def main():
     """Main function to sync budget data from Actual to Google Sheets."""
+    # Load environment variables from .env file (for local development)
+    load_dotenv()
+    
     # Load environment variables
     actual_server_url = os.getenv("ACTUAL_SERVER_URL")
     actual_password = os.getenv("ACTUAL_PASSWORD")
