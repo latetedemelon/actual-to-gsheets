@@ -2,3 +2,4 @@ actualpy>=0.10.0
 gspread>=6.0.0
 google-auth>=2.0.0
 python-dateutil>=2.8.0
+python-dotenv>=1.0.0
