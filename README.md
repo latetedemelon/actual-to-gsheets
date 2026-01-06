@@ -1,11 +1,12 @@
 # Actual Budget to Google Sheets Sync
 
-Automatically sync your budget data from [Actual Budget](https://actualbudget.org/) to Google Sheets. This tool creates two tabs in a Google Sheet that display your budget information for the current and previous month.
+Automatically sync your budget data from [Actual Budget](https://actualbudget.org/) to Google Sheets. This tool creates tabs in a Google Sheet that display your budget information for the current and previous month, with optional transaction export.
 
 ## Features
 
 - 🔄 Automatic synchronization of budget data from Actual Budget to Google Sheets
 - 📊 Two tabs: "Previous Month Budget" and "Current Month Budget"
+- 💳 **Optional**: Export transactions to a separate "Transactions" tab
 - 📈 Shows budgeted amount, actual spend, and running balance for each category
 - 🗂️ Organized by category groups with alphabetical sorting
 - 📅 Includes monthly totals
@@ -84,6 +85,10 @@ Before you begin, you'll need:
    ACTUAL_ENCRYPTION_PASSWORD=your-encryption-password-if-needed
    GOOGLE_SHEET_ID=your-google-sheet-id
    GOOGLE_CREDENTIALS_FILE=path/to/service-account-credentials.json
+   
+   # Optional: Export transactions to a separate sheet
+   EXPORT_TRANSACTIONS=false
+   TRANSACTIONS_DATE_RANGE=current_month
    ```
 
 ### 4. GitHub Actions Setup (Recommended for Automation)
@@ -99,6 +104,8 @@ Before you begin, you'll need:
      - `ACTUAL_ENCRYPTION_PASSWORD`: Your encryption password (if applicable)
      - `GOOGLE_SHEET_ID`: Your Google Sheet ID
      - `GOOGLE_CREDENTIALS_JSON`: Contents of your service account JSON file
+     - `EXPORT_TRANSACTIONS` (Optional): Set to `true` to export transactions
+     - `TRANSACTIONS_DATE_RANGE` (Optional): `current_month`, `previous_month`, or `both_months`
 
 3. The workflow will run automatically daily at 6 AM UTC, or you can trigger it manually from the Actions tab
 
@@ -149,6 +156,20 @@ January 2024
 ### Current Month Budget
 Same format as above, but with current month's data.
 
+### Transactions (Optional)
+When `EXPORT_TRANSACTIONS=true`, a third tab is created with detailed transaction data:
+
+```
+Transactions - January 2024
+|------------|----------|-------------|----------|-------------|----------|---------|
+| Date       | Account  | Payee       | Category | Description | Amount   | Cleared |
+|------------|----------|-------------|----------|-------------|----------|---------|
+| 2024-01-15 | Checking | Amazon      | Shopping | Books       | -$45.99  | ✓       |
+| 2024-01-14 | Checking | Starbucks   | Dining   | Coffee      | -$5.75   | ✓       |
+| 2024-01-13 | Checking | Salary Inc. | Income   | Paycheck    | $3000.00 |         |
+|------------|----------|-------------|----------|-------------|----------|---------|
+```
+
 ## Configuration
 
 ### Environment Variables
@@ -162,6 +183,8 @@ Same format as above, but with current month's data.
 | `GOOGLE_SHEET_ID` | Yes | ID of your Google Sheet |
 | `GOOGLE_CREDENTIALS_FILE` | Conditional* | Path to service account JSON credentials file |
 | `GOOGLE_CREDENTIALS_JSON` | Conditional* | Service account JSON credentials as a string |
+| `EXPORT_TRANSACTIONS` | No | Set to `true` to export transactions (default: `false`) |
+| `TRANSACTIONS_DATE_RANGE` | No | Date range for transactions: `current_month`, `previous_month`, or `both_months` (default: `current_month`) |
 
 \* Either `GOOGLE_CREDENTIALS_FILE` or `GOOGLE_CREDENTIALS_JSON` must be provided. Use `GOOGLE_CREDENTIALS_FILE` for local execution and `GOOGLE_CREDENTIALS_JSON` for CI/CD environments like GitHub Actions.
 
