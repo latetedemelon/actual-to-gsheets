@@ -235,13 +235,15 @@ def get_account_balances(session) -> List[Dict]:
     """
     Extract account balances from Actual Budget.
     
+    Only returns open accounts (closed accounts are excluded).
+    
     Args:
         session: Actual database session
         
     Returns:
         List of dictionaries containing account balance data
     """
-    # Get all accounts (open and closed, on and off budget)
+    # Get all accounts (on and off budget)
     accounts = get_accounts(session, include_deleted=False)
     
     print(f"Found {len(accounts)} accounts")
@@ -250,8 +252,8 @@ def get_account_balances(session) -> List[Dict]:
     data = []
     
     for account in accounts:
-        # Skip tombstoned (deleted) accounts
-        if account.tombstone:
+        # Skip tombstoned (deleted) accounts and closed accounts
+        if account.tombstone or account.closed:
             continue
         
         # Get account balance (stored in cents)
@@ -259,19 +261,17 @@ def get_account_balances(session) -> List[Dict]:
         
         # Determine account type
         account_type = "Off Budget" if account.offbudget else "On Budget"
-        account_status = "Closed" if account.closed else "Open"
         
         data.append({
             "name": account.name or "Unknown",
             "balance": float(balance),
             "type": account_type,
-            "status": account_status,
         })
     
-    # Sort by type (on budget first), then status (open first), then name
-    data.sort(key=lambda x: (x["type"], x["status"] == "Closed", x["name"]))
+    # Sort by type (on budget first), then name
+    data.sort(key=lambda x: (x["type"], x["name"]))
     
-    print(f"Returning {len(data)} account entries")
+    print(f"Returning {len(data)} account entries (open accounts only)")
     
     return data
 
@@ -431,10 +431,10 @@ def update_account_balances_sheet(
     worksheet.clear()
     
     # Prepare header
-    headers = ["Account Name", "Balance", "Type", "Status"]
+    headers = ["Account Name", "Balance", "Type"]
     
     # Prepare rows
-    rows = [["Account Balances", "", "", ""]]  # Title row
+    rows = [["Account Balances", "", ""]]  # Title row
     rows.append(headers)
     
     # Add data rows
@@ -443,26 +443,25 @@ def update_account_balances_sheet(
             item["name"],
             format_currency(item["balance"]),
             item["type"],
-            item["status"],
         ])
     
-    # Calculate totals
-    total_on_budget = sum(item["balance"] for item in data if item["type"] == "On Budget" and item["status"] == "Open")
-    total_off_budget = sum(item["balance"] for item in data if item["type"] == "Off Budget" and item["status"] == "Open")
-    total_all = sum(item["balance"] for item in data if item["status"] == "Open")
+    # Calculate totals (all accounts are open now)
+    total_on_budget = sum(item["balance"] for item in data if item["type"] == "On Budget")
+    total_off_budget = sum(item["balance"] for item in data if item["type"] == "Off Budget")
+    total_all = sum(item["balance"] for item in data)
     
     # Add blank row and totals
-    rows.append(["", "", "", ""])
-    rows.append(["TOTAL (On Budget)", format_currency(total_on_budget), "", ""])
-    rows.append(["TOTAL (Off Budget)", format_currency(total_off_budget), "", ""])
-    rows.append(["TOTAL (All Open Accounts)", format_currency(total_all), "", ""])
+    rows.append(["", "", ""])
+    rows.append(["TOTAL (On Budget)", format_currency(total_on_budget), ""])
+    rows.append(["TOTAL (Off Budget)", format_currency(total_off_budget), ""])
+    rows.append(["TOTAL (All Accounts)", format_currency(total_all), ""])
     
     # Update the sheet
     worksheet.update(rows, value_input_option="USER_ENTERED")
     
     # Format the sheet
     # Bold header rows
-    worksheet.format("A1:D2", {
+    worksheet.format("A1:C2", {
         "textFormat": {"bold": True},
         "horizontalAlignment": "CENTER",
     })
@@ -470,12 +469,12 @@ def update_account_balances_sheet(
     # Bold totals rows
     total_start_row = len(rows) - 2
     total_end_row = len(rows)
-    worksheet.format(f"A{total_start_row}:D{total_end_row}", {
+    worksheet.format(f"A{total_start_row}:C{total_end_row}", {
         "textFormat": {"bold": True},
     })
     
     # Auto-resize columns
-    worksheet.columns_auto_resize(0, 3)
+    worksheet.columns_auto_resize(0, 2)
 
 
 def main():
@@ -638,7 +637,7 @@ def main():
             spreadsheet,
             "Account Balances",
             rows=max(100, len(account_balances) + 20),  # Ensure enough rows for accounts + totals
-            cols=4
+            cols=3
         )
         update_account_balances_sheet(account_balances_worksheet, account_balances)
         
