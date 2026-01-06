@@ -204,9 +204,12 @@ def get_transaction_data(
         
         # Convert date (stored as integer YYYYMMDD) to readable format
         date_str = str(transaction.date)
-        if len(date_str) == 8:
-            formatted_date = f"{date_str[0:4]}-{date_str[4:6]}-{date_str[6:8]}"
-        else:
+        try:
+            if len(date_str) == 8:
+                formatted_date = f"{date_str[0:4]}-{date_str[4:6]}-{date_str[6:8]}"
+            else:
+                formatted_date = date_str
+        except (ValueError, IndexError):
             formatted_date = date_str
         
         data.append({
