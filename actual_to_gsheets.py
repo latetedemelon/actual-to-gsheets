@@ -21,6 +21,7 @@ from dateutil.relativedelta import relativedelta
 
 from actual import Actual
 from actual.queries import (
+    get_accounts,
     get_budgets,
     get_categories,
     get_category_groups,
@@ -230,6 +231,51 @@ def get_transaction_data(
     return data
 
 
+def get_account_balances(session) -> List[Dict]:
+    """
+    Extract account balances from Actual Budget.
+    
+    Args:
+        session: Actual database session
+        
+    Returns:
+        List of dictionaries containing account balance data
+    """
+    # Get all accounts (open and closed, on and off budget)
+    accounts = get_accounts(session, include_deleted=False)
+    
+    print(f"Found {len(accounts)} accounts")
+    
+    # Prepare data list
+    data = []
+    
+    for account in accounts:
+        # Skip tombstoned (deleted) accounts
+        if account.tombstone:
+            continue
+        
+        # Get account balance (stored in cents)
+        balance = cents_to_decimal(account.balance_current if account.balance_current is not None else 0)
+        
+        # Determine account type
+        account_type = "Off Budget" if account.offbudget else "On Budget"
+        account_status = "Closed" if account.closed else "Open"
+        
+        data.append({
+            "name": account.name or "Unknown",
+            "balance": float(balance),
+            "type": account_type,
+            "status": account_status,
+        })
+    
+    # Sort by type (on budget first), then status (open first), then name
+    data.sort(key=lambda x: (x["type"], x["status"] == "Closed", x["name"]))
+    
+    print(f"Returning {len(data)} account entries")
+    
+    return data
+
+
 def format_currency(value: float) -> str:
     """Format a number as currency."""
     return f"${value:,.2f}"
@@ -370,6 +416,68 @@ def update_transaction_sheet(
     worksheet.columns_auto_resize(0, 6)
 
 
+def update_account_balances_sheet(
+    worksheet,
+    data: List[Dict]
+) -> None:
+    """
+    Update a Google Sheets tab with account balance data.
+    
+    Args:
+        worksheet: gspread worksheet object
+        data: List of account balance data dictionaries
+    """
+    # Clear the sheet
+    worksheet.clear()
+    
+    # Prepare header
+    headers = ["Account Name", "Balance", "Type", "Status"]
+    
+    # Prepare rows
+    rows = [["Account Balances", "", "", ""]]  # Title row
+    rows.append(headers)
+    
+    # Add data rows
+    for item in data:
+        rows.append([
+            item["name"],
+            format_currency(item["balance"]),
+            item["type"],
+            item["status"],
+        ])
+    
+    # Calculate totals
+    total_on_budget = sum(item["balance"] for item in data if item["type"] == "On Budget" and item["status"] == "Open")
+    total_off_budget = sum(item["balance"] for item in data if item["type"] == "Off Budget" and item["status"] == "Open")
+    total_all = sum(item["balance"] for item in data if item["status"] == "Open")
+    
+    # Add blank row and totals
+    rows.append(["", "", "", ""])
+    rows.append(["TOTAL (On Budget)", format_currency(total_on_budget), "", ""])
+    rows.append(["TOTAL (Off Budget)", format_currency(total_off_budget), "", ""])
+    rows.append(["TOTAL (All Open Accounts)", format_currency(total_all), "", ""])
+    
+    # Update the sheet
+    worksheet.update(rows, value_input_option="USER_ENTERED")
+    
+    # Format the sheet
+    # Bold header rows
+    worksheet.format("A1:D2", {
+        "textFormat": {"bold": True},
+        "horizontalAlignment": "CENTER",
+    })
+    
+    # Bold totals rows
+    total_start_row = len(rows) - 2
+    total_end_row = len(rows)
+    worksheet.format(f"A{total_start_row}:D{total_end_row}", {
+        "textFormat": {"bold": True},
+    })
+    
+    # Auto-resize columns
+    worksheet.columns_auto_resize(0, 3)
+
+
 def main():
     """Main function to sync budget data from Actual to Google Sheets."""
     # Load environment variables from .env file (for local development)
@@ -473,6 +581,10 @@ def main():
                         current_end
                     )
                     transaction_title = f"Transactions - {current_label}"
+            
+            # Extract account balances
+            print("Extracting account balances...")
+            account_balances = get_account_balances(actual.session)
         
         # Connect to Google Sheets
         print("Connecting to Google Sheets...")
@@ -519,6 +631,16 @@ def main():
                 cols=7
             )
             update_transaction_sheet(transactions_worksheet, transaction_title, transaction_data)
+        
+        # Update Account Balances tab
+        print(f"Updating 'Account Balances' tab...")
+        account_balances_worksheet = get_or_create_worksheet(
+            spreadsheet,
+            "Account Balances",
+            rows=max(100, len(account_balances) + 20),  # Ensure enough rows for accounts + totals
+            cols=4
+        )
+        update_account_balances_sheet(account_balances_worksheet, account_balances)
         
         print("✓ Successfully synced budget data to Google Sheets!")
         
