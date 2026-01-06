@@ -155,6 +155,81 @@ def get_budget_data(
     return data
 
 
+def get_transaction_data(
+    session,
+    start_date: datetime,
+    end_date: datetime
+) -> List[Dict]:
+    """
+    Extract transaction data from Actual Budget.
+    
+    Args:
+        session: Actual database session
+        start_date: Start date for transactions
+        end_date: End date for transactions
+        
+    Returns:
+        List of dictionaries containing transaction data
+    """
+    # Get all transactions for the date range
+    # is_parent=False ensures we get individual transactions and splits, not parent split transactions
+    transactions = get_transactions(
+        session,
+        start_date=start_date.date(),
+        end_date=end_date.date(),
+        is_parent=False
+    )
+    
+    print(f"Found {len(transactions)} transactions")
+    
+    # Prepare data list
+    data = []
+    
+    for transaction in transactions:
+        # Skip parent transactions and tombstoned (deleted) transactions
+        if getattr(transaction, 'is_parent', False) or transaction.tombstone:
+            continue
+        
+        # Get account name
+        account_name = transaction.account.name if transaction.account else "Unknown"
+        
+        # Get category name
+        category_name = transaction.category.name if transaction.category else "Uncategorized"
+        
+        # Get payee name
+        payee_name = transaction.payee.name if transaction.payee else ""
+        
+        # Convert amount from cents to dollars
+        amount = cents_to_decimal(transaction.amount)
+        
+        # Convert date (stored as integer YYYYMMDD) to readable format
+        date_str = str(transaction.date)
+        try:
+            if len(date_str) == 8:
+                formatted_date = f"{date_str[0:4]}-{date_str[4:6]}-{date_str[6:8]}"
+            else:
+                formatted_date = date_str
+        except (ValueError, IndexError):
+            formatted_date = date_str
+        
+        data.append({
+            "date": formatted_date,
+            "account": account_name,
+            "payee": payee_name,
+            "category": category_name,
+            "description": transaction.notes or "",
+            "amount": float(amount),
+            "cleared": bool(transaction.cleared),
+        })
+    
+    # Sort by date (descending - most recent first)
+    data.sort(key=lambda x: x["date"], reverse=True)
+    
+    print(f"Returning {len(data)} transaction entries")
+    
+    return data
+
+
 def format_currency(value: float) -> str:
     """Format a number as currency."""
     return f"${value:,.2f}"
@@ -246,6 +321,55 @@ def update_sheet_tab(
     worksheet.columns_auto_resize(0, 4)
 
 
+def update_transaction_sheet(
+    worksheet,
+    title: str,
+    data: List[Dict]
+) -> None:
+    """
+    Update a Google Sheets tab with transaction data.
+    
+    Args:
+        worksheet: gspread worksheet object
+        title: Title for the sheet (e.g., "Transactions")
+        data: List of transaction data dictionaries
+    """
+    # Clear the sheet
+    worksheet.clear()
+    
+    # Prepare header
+    headers = ["Date", "Account", "Payee", "Category", "Description", "Amount", "Cleared"]
+    
+    # Prepare rows
+    rows = [[title, "", "", "", "", "", ""]]  # Title row
+    rows.append(headers)
+    
+    # Add data rows
+    for item in data:
+        rows.append([
+            item["date"],
+            item["account"],
+            item["payee"],
+            item["category"],
+            item["description"],
+            format_currency(item["amount"]),
+            "✓" if item["cleared"] else "",
+        ])
+    
+    # Update the sheet
+    worksheet.update(rows, value_input_option="USER_ENTERED")
+    
+    # Format the sheet
+    # Bold header rows
+    worksheet.format("A1:G2", {
+        "textFormat": {"bold": True},
+        "horizontalAlignment": "CENTER",
+    })
+    
+    # Auto-resize columns
+    worksheet.columns_auto_resize(0, 6)
+
+
 def main():
     """Main function to sync budget data from Actual to Google Sheets."""
     # Load environment variables from .env file (for local development)
@@ -259,6 +383,8 @@ def main():
     google_sheet_id = os.getenv("GOOGLE_SHEET_ID")
     google_credentials_file = os.getenv("GOOGLE_CREDENTIALS_FILE")
     google_credentials_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+    export_transactions = os.getenv("EXPORT_TRANSACTIONS", "false").lower() in ("true", "1", "yes")
+    transactions_date_range = os.getenv("TRANSACTIONS_DATE_RANGE", "current_month")
     
     # Validate required environment variables
     required_vars = [
@@ -310,6 +436,43 @@ def main():
                 current_start,
                 current_end
             )
+            
+            # Extract transaction data if enabled
+            transaction_data = None
+            if export_transactions:
+                if transactions_date_range == "current_month":
+                    print(f"Extracting transactions for {current_label}...")
+                    transaction_data = get_transaction_data(
+                        actual.session,
+                        current_start,
+                        current_end
+                    )
+                    transaction_title = f"Transactions - {current_label}"
+                elif transactions_date_range == "previous_month":
+                    print(f"Extracting transactions for {previous_label}...")
+                    transaction_data = get_transaction_data(
+                        actual.session,
+                        previous_start,
+                        previous_end
+                    )
+                    transaction_title = f"Transactions - {previous_label}"
+                elif transactions_date_range == "both_months":
+                    print(f"Extracting transactions for {previous_label} and {current_label}...")
+                    # Combine both months
+                    transaction_data = get_transaction_data(
+                        actual.session,
+                        previous_start,
+                        current_end
+                    )
+                    transaction_title = f"Transactions - {previous_label} to {current_label}"
+                else:
+                    print(f"Warning: Unknown TRANSACTIONS_DATE_RANGE value '{transactions_date_range}'. Using 'current_month'.")
+                    transaction_data = get_transaction_data(
+                        actual.session,
+                        current_start,
+                        current_end
+                    )
+                    transaction_title = f"Transactions - {current_label}"
         
         # Connect to Google Sheets
         print("Connecting to Google Sheets...")
@@ -345,6 +508,17 @@ def main():
         print(f"Updating 'Current Month Budget' tab with {current_label} data...")
         current_worksheet = get_or_create_worksheet(spreadsheet, "Current Month Budget")
         update_sheet_tab(current_worksheet, current_label, current_month_data)
+        
+        # Update Transactions tab if enabled
+        if export_transactions and transaction_data:
+            print(f"Updating 'Transactions' tab...")
+            transactions_worksheet = get_or_create_worksheet(
+                spreadsheet, 
+                "Transactions",
+                rows=max(1000, len(transaction_data) + 10),  # Ensure enough rows
+                cols=7
+            )
+            update_transaction_sheet(transactions_worksheet, transaction_title, transaction_data)
         
         print("✓ Successfully synced budget data to Google Sheets!")
         

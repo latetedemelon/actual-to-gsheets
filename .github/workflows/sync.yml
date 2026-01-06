@@ -36,5 +36,7 @@ jobs:
           ACTUAL_ENCRYPTION_PASSWORD: ${{ secrets.ACTUAL_ENCRYPTION_PASSWORD }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
           GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          EXPORT_TRANSACTIONS: ${{ secrets.EXPORT_TRANSACTIONS }}
+          TRANSACTIONS_DATE_RANGE: ${{ secrets.TRANSACTIONS_DATE_RANGE }}
         run: |
           python actual_to_gsheets.py
