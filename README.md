@@ -1,11 +1,12 @@
 # Actual Budget to Google Sheets Sync
 
-Automatically sync your budget data from [Actual Budget](https://actualbudget.org/) to Google Sheets. This tool creates tabs in a Google Sheet that display your budget information for the current and previous month, with optional transaction export.
+Automatically sync your budget data from [Actual Budget](https://actualbudget.org/) to Google Sheets. This tool creates tabs in a Google Sheet that display your budget information for the current and previous month, account balances, and optional transaction export.
 
 ## Features
 
 - 🔄 Automatic synchronization of budget data from Actual Budget to Google Sheets
 - 📊 Two tabs: "Previous Month Budget" and "Current Month Budget"
+- 💰 **New**: Account balances tab showing all account balances and totals
 - 💳 **Optional**: Export transactions to a separate "Transactions" tab
 - 📈 Shows budgeted amount, actual spend, and running balance for each category
 - 🗂️ Organized by category groups with alphabetical sorting
@@ -137,7 +138,7 @@ The included workflow automatically runs daily. You can also trigger it manually
 
 ## Output Format
 
-The script creates or updates two tabs in your Google Sheet:
+The script creates or updates tabs in your Google Sheet:
 
 ### Previous Month Budget
 ```
@@ -156,8 +157,35 @@ January 2024
 ### Current Month Budget
 Same format as above, but with current month's data.
 
+### Account Balances
+This tab shows the current balance of all accounts:
+
+```
+Account Balances
+|------------------|-----------|-------------|--------|
+| Account Name     | Balance   | Type        | Status |
+|------------------|-----------|-------------|--------|
+| Checking         | $2,450.00 | On Budget   | Open   |
+| Savings          | $10,000.00| On Budget   | Open   |
+| Credit Card      | -$542.18  | On Budget   | Open   |
+| Investment       | $15,000.00| Off Budget  | Open   |
+| Old Checking     | $0.00     | On Budget   | Closed |
+|------------------|-----------|-------------|--------|
+|                  |           |             |        |
+| TOTAL (On Budget)| $11,907.82|             |        |
+| TOTAL (Off Budget)| $15,000.00|            |        |
+| TOTAL (All Open Accounts)| $26,907.82|    |        |
+|------------------|-----------|-------------|--------|
+```
+
+The tab includes:
+- All accounts (both on-budget and off-budget)
+- Account status (open or closed)
+- Separate totals for on-budget accounts, off-budget accounts, and all open accounts combined
+- Accounts are sorted by type, status, and name
+
 ### Transactions (Optional)
-When `EXPORT_TRANSACTIONS=true`, a third tab is created with detailed transaction data:
+When `EXPORT_TRANSACTIONS=true`, a tab is created with detailed transaction data:
 
 ```
 Transactions - January 2024
