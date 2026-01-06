@@ -158,31 +158,30 @@ January 2024
 Same format as above, but with current month's data.
 
 ### Account Balances
-This tab shows the current balance of all accounts:
+This tab shows the current balance of all open accounts:
 
 ```
 Account Balances
-|------------------|-----------|-------------|--------|
-| Account Name     | Balance   | Type        | Status |
-|------------------|-----------|-------------|--------|
-| Checking         | $2,450.00 | On Budget   | Open   |
-| Savings          | $10,000.00| On Budget   | Open   |
-| Credit Card      | -$542.18  | On Budget   | Open   |
-| Investment       | $15,000.00| Off Budget  | Open   |
-| Old Checking     | $0.00     | On Budget   | Closed |
-|------------------|-----------|-------------|--------|
-|                  |           |             |        |
-| TOTAL (On Budget)| $11,907.82|             |        |
-| TOTAL (Off Budget)| $15,000.00|            |        |
-| TOTAL (All Open Accounts)| $26,907.82|    |        |
-|------------------|-----------|-------------|--------|
+|------------------|-----------|-------------|
+| Account Name     | Balance   | Type        |
+|------------------|-----------|-------------|
+| Checking         | $2,450.00 | On Budget   |
+| Savings          | $10,000.00| On Budget   |
+| Credit Card      | -$542.18  | On Budget   |
+| Investment       | $15,000.00| Off Budget  |
+|------------------|-----------|-------------|
+|                  |           |             |
+| TOTAL (On Budget)| $11,907.82|             |
+| TOTAL (Off Budget)| $15,000.00|            |
+| TOTAL (All Accounts)| $26,907.82|          |
+|------------------|-----------|-------------|
 ```
 
 The tab includes:
-- All accounts (both on-budget and off-budget)
-- Account status (open or closed)
-- Separate totals for on-budget accounts, off-budget accounts, and all open accounts combined
-- Accounts are sorted by type, status, and name
+- All open accounts (both on-budget and off-budget)
+- Closed accounts are excluded from the report
+- Separate totals for on-budget accounts, off-budget accounts, and all accounts combined
+- Accounts are sorted by type and name
 
 ### Transactions (Optional)
 When `EXPORT_TRANSACTIONS=true`, a tab is created with detailed transaction data:
